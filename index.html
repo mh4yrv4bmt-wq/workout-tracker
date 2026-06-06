@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Training Log"/>
+  <title>Training Log</title>
+  <link rel="manifest" href="data:application/json;charset=utf-8,{
+    &quot;name&quot;:&quot;Training Log&quot;,
+    &quot;short_name&quot;:&quot;Training&quot;,
+    &quot;start_url&quot;:&quot;.&quot;,
+    &quot;display&quot;:&quot;standalone&quot;,
+    &quot;background_color&quot;:&quot;#0c0c0e&quot;,
+    &quot;theme_color&quot;:&quot;#0c0c0e&quot;,
+    &quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230c0c0e'/><text y='.9em' font-size='80'>🏋</text></svg>&quot;,&quot;sizes&quot;:&quot;any&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]
+  }"/>
+  <style>
+    html,body{margin:0;padding:0;background:#0c0c0e;height:100%;}
+    #root{height:100%;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React + Babel via CDN — no build step needed -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, Fragment } = React;
+
+
+// ─── LIFTING PROGRAM (16-week, starts Apr 13 2026) ───────────────────────────
+const LIFT_PROGRAM_START = new Date("2026-04-13"); // Monday Week 1
+
+const PHASES = [
+  { id: 1, name: "Foundation",    weeks: [1,2,3,4],    color: "#34d399" },
+  { id: 2, name: "Building Base", weeks: [5,6,7,8],    color: "#60a5fa" },
+  { id: 3, name: "Intensify",     weeks: [9,10,11,12], color: "#f59e0b" },
+  { id: 4, name: "Goal",          weeks: [13,14,15,16],color: "#f87171" },
+];
+const getLiftPhase = (w) => PHASES.find(p => p.weeks.includes(w)) || PHASES[0];
+const isLiftDeload = (w) => [4,8,12].includes(w);
+
+// ─── MARATHON PROGRAM (29-week, starts May 11 2026) ──────────────────────────
+const MARATHON_START = new Date("2026-05-11"); // Monday Week 1
+
+// Full 29-week plan
+const MARATHON_PLAN = [
+  // Phase 1 — Base Building (Wks 1-8)
+  { wk:1,  phase:"Base",     dates:"05/11–05/16", tue:"4 mi easy",          thu:"4 mi easy",          sat:"6 mi easy",          miles:18, cutback:false },
+  { wk:2,  phase:"Base",     dates:"05/18–05/23", tue:"4 mi easy",          thu:"5 mi easy",          sat:"7 mi easy",          miles:20, cutback:false },
+  { wk:3,  phase:"Base",     dates:"05/25–05/30", tue:"5 mi easy",          thu:"5 mi easy",          sat:"8 mi easy",          miles:22, cutback:false },
+  { wk:4,  phase:"Base",     dates:"06/01–06/06", tue:"4 mi easy",          thu:"4 mi easy",          sat:"6 mi easy",          miles:18, cutback:true  },
+  { wk:5,  phase:"Base",     dates:"06/08–06/13", tue:"5 mi easy",          thu:"6 mi easy",          sat:"9 mi easy",          miles:24, cutback:false },
+  { wk:6,  phase:"Base",     dates:"06/15–06/20", tue:"5 mi easy",          thu:"6 mi easy",          sat:"10 mi easy",         miles:25, cutback:false },
+  { wk:7,  phase:"Base",     dates:"06/22–06/27", tue:"6 mi easy",          thu:"6 mi easy",          sat:"11 mi easy",         miles:27, cutback:false },
+  { wk:8,  phase:"Base",     dates:"06/29–07/04", tue:"4 mi easy",          thu:"5 mi easy",          sat:"8 mi easy",          miles:21, cutback:true  },
+  // Phase 2 — Marathon Build (Wks 9-20)
+  { wk:9,  phase:"Build",    dates:"07/06–07/11", tue:"5 mi tempo",         thu:"7 mi easy",          sat:"12 mi easy",         miles:28, cutback:false },
+  { wk:10, phase:"Build",    dates:"07/13–07/18", tue:"5 mi tempo",         thu:"7 mi easy",          sat:"13 mi easy",         miles:29, cutback:false },
+  { wk:11, phase:"Build",    dates:"07/20–07/25", tue:"6 mi: 3×1mi @10:30", thu:"7 mi easy",          sat:"14 mi easy",         miles:31, cutback:false },
+  { wk:12, phase:"Build",    dates:"07/27–08/01", tue:"4 mi easy",          thu:"5 mi easy",          sat:"10 mi easy",         miles:23, cutback:true  },
+  { wk:13, phase:"Build",    dates:"08/03–08/08", tue:"6 mi tempo",         thu:"8 mi easy",          sat:"15 mi easy",         miles:33, cutback:false },
+  { wk:14, phase:"Build",    dates:"08/10–08/15", tue:"6 mi: 4×1mi @10:30", thu:"8 mi easy",          sat:"16 mi easy",         miles:34, cutback:false },
+  { wk:15, phase:"Build",    dates:"08/17–08/22", tue:"6 mi progression",   thu:"8 mi easy",          sat:"17 mi easy",         miles:35, cutback:false },
+  { wk:16, phase:"Build",    dates:"08/24–08/29", tue:"5 mi easy",          thu:"6 mi easy",          sat:"12 mi easy",         miles:27, cutback:true  },
+  { wk:17, phase:"Build",    dates:"08/31–09/05", tue:"7 mi tempo",         thu:"8 mi easy",          sat:"18 mi easy",         miles:37, cutback:false },
+  { wk:18, phase:"Build",    dates:"09/07–09/12", tue:"6 mi: 4×1mi @10:30", thu:"8 mi easy",          sat:"19 mi easy",         miles:38, cutback:false },
+  { wk:19, phase:"Build",    dates:"09/14–09/19", tue:"6 mi tempo",         thu:"8 mi easy",          sat:"20 mi PEAK",         miles:38, cutback:false },
+  { wk:20, phase:"Build",    dates:"09/21–09/26", tue:"4 mi easy",          thu:"6 mi easy",          sat:"14 mi easy",         miles:28, cutback:true  },
+  // Phase 3 — Taper (Wks 21-28)
+  { wk:21, phase:"Taper",    dates:"09/28–10/03", tue:"5 mi tempo",         thu:"7 mi easy",          sat:"16 mi easy",         miles:32, cutback:false },
+  { wk:22, phase:"Taper",    dates:"10/05–10/10", tue:"5 mi easy",          thu:"6 mi easy",          sat:"14 mi easy",         miles:29, cutback:false },
+  { wk:23, phase:"Taper",    dates:"10/12–10/17", tue:"5 mi tempo",         thu:"6 mi easy",          sat:"12 mi easy",         miles:27, cutback:false },
+  { wk:24, phase:"Taper",    dates:"10/19–10/24", tue:"4 mi easy",          thu:"5 mi easy",          sat:"10 mi easy",         miles:23, cutback:false },
+  { wk:25, phase:"Taper",    dates:"10/26–10/31", tue:"4 mi tempo",         thu:"5 mi easy",          sat:"8 mi easy",          miles:21, cutback:false },
+  { wk:26, phase:"Taper",    dates:"11/02–11/07", tue:"3 mi easy",          thu:"4 mi easy",          sat:"6 mi easy",          miles:17, cutback:false },
+  { wk:27, phase:"Taper",    dates:"11/09–11/14", tue:"3 mi easy",          thu:"3 mi easy",          sat:"5 mi easy",          miles:15, cutback:false },
+  { wk:28, phase:"Taper",    dates:"11/16–11/21", tue:"3 mi easy",          thu:"2 mi easy",          sat:"3 mi shakeout",      miles:12, cutback:false },
+  // Race Week (Wk 29)
+  { wk:29, phase:"Race",     dates:"11/22–12/06", tue:"2 mi shakeout",      thu:"Rest",               sat:"MARATHON 🏁",        miles:null, cutback:false },
+];
+
+const MARATHON_PHASE_COLORS = {
+  Base:  "#34d399",
+  Build: "#60a5fa",
+  Taper: "#f59e0b",
+  Race:  "#f87171",
+};
+
+// Given today's date, compute which marathon week we're in
+const getMarathonWeek = (today) => {
+  const ms = today - MARATHON_START;
+  const daysDiff = Math.floor(ms / 86400000);
+  if (daysDiff < 0) return 1;
+  const wk = Math.floor(daysDiff / 7) + 1;
+  return Math.min(wk, 29);
+};
+
+const getLiftWeek = (today) => {
+  const ms = today - LIFT_PROGRAM_START;
+  const daysDiff = Math.floor(ms / 86400000);
+  if (daysDiff < 0) return 1;
+  const wk = Math.floor(daysDiff / 7) + 1;
+  return Math.min(wk, 16);
+};
+
+// Get Monday of the marathon week number
+const marathonWeekMonday = (wkNum) => {
+  const d = new Date(MARATHON_START);
+  d.setDate(d.getDate() + (wkNum - 1) * 7);
+  return d;
+};
+
+const fmtDate = (d) => d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+const fmtDateShort = (d) => `${d.getMonth()+1}/${d.getDate()}`;
+
+// ─── BODYWEIGHT PROTOCOLS ─────────────────────────────────────────────────────
+// BW protocols — exact prescriptions per week from PDF, including deload weeks
+// Pull-ups:
+//   WED structured sets: exact rep counts per set (from Fighter Pull-Up program)
+//   FRI volume: inv rows / band-assisted / unassisted — deload weeks = empty (skip)
+//   Deload wk4: WED 3×(1PU+2neg), FRI skip
+//   Deload wk8: WED 3×(2,1,1), FRI skip
+//   Deload wk12: WED 3×(2,2,1), FRI skip
+// Push-ups:
+//   WED+FRI same protocol each week (ladder or straight sets)
+//   Deload wk4: 2 ladders 1-2-3 + 1×8 incline = 3 sets
+//   Deload wk8: 2 ladders 1-2-3 + 1×8 incline = 3 sets
+//   Deload wk12: 2 ladders 1-2-3-4 + 1×5 = 3 sets
+// Plank: +5s/week, deload = 2 sets (not 3), same target seconds
+// Dead Bug: progressive, deload = 2 sets
+// Hollow Body: progressive, deload = 2 sets
+
+const BW_PROTOCOLS = {
+  // ── PULL-UPS ──────────────────────────────────────────────────────────────────
+  // WED: structured Fighter Pull-Up sets (exact reps pre-filled)
+  // FRI: 3 separate sub-exercises logged individually per phase:
+  //   Ph1 (wk1-3):  inv rows 3×8  +  band-assisted 3×8  +  dead hang 3×20s
+  //   Ph2 (wk5-7):  inv rows (feet-elev) 3×8  +  light band 3×6  +  dead hang 30s
+  //   Ph3 (wk9-11): unassisted PU 3×3  +  inv rows (feet-elev) 3×10  +  dead hang 3×30s w/ scap
+  //   Ph4 (wk13-15): unassisted PU 5×3 only
+  //   Deload (wk4,8,12): skip FRI entirely
+  pullups: {
+    label:"Pull-ups", icon:"🔼", goal:3,
+    protocol:{
+      1: {WED_note:"5×(1 PU + 3 negatives 5s descent)",
+          FRI_note:"3×8 inv rows · 3×8 band-assisted · 3×20s dead hang"},
+      2: {WED_note:"5×(1 PU + 3 negatives 5s descent)",
+          FRI_note:"3×8 inv rows · 3×8 band-assisted · 3×20s dead hang"},
+      3: {WED_note:"6×(1 PU + 2 neg + 1 band-assisted)",
+          FRI_note:"3×8 inv rows · 3×8 band-assisted · 3×20s dead hang"},
+      4: {WED_note:"DELOAD — 3×(1 PU + 2 negatives)",
+          FRI_note:"DELOAD — skip"},
+      5: {WED_note:"5×(2,1,1,1,1) + 2 negatives",
+          FRI_note:"Feet-elev inv rows 3×8 · light band 3×6 · 30s dead hang"},
+      6: {WED_note:"5×(2,2,1,1,1) + 2 negatives",
+          FRI_note:"Feet-elev inv rows 3×8 · light band 3×6 · 30s dead hang"},
+      7: {WED_note:"5×(2,2,2,1,1) + 1 negative",
+          FRI_note:"Feet-elev inv rows 3×8 · light band 3×6 · 30s dead hang"},
+      8: {WED_note:"DELOAD — 3×(2,1,1)",
+          FRI_note:"DELOAD — skip"},
+      9: {WED_note:"5×(3,2,2,1,1) + 1 negative",
+          FRI_note:"Unassisted 3×3 · feet-elev inv rows 3×10 · dead hang 3×30s w/ scap"},
+      10:{WED_note:"5×(3,2,2,2,1)",
+          FRI_note:"Unassisted 3×3 · feet-elev inv rows 3×10 · dead hang 3×30s w/ scap"},
+      11:{WED_note:"5×(3,3,2,2,1)",
+          FRI_note:"Unassisted 3×3 · feet-elev inv rows 3×10 · dead hang 3×30s w/ scap"},
+      12:{WED_note:"DELOAD — 3×(2,2,1)",
+          FRI_note:"DELOAD — skip"},
+      13:{WED_note:"5×(3,3,2,2,2)",
+          FRI_note:"Unassisted 5×3"},
+      14:{WED_note:"5×(3,3,3,2,2)",
+          FRI_note:"Unassisted 5×3"},
+      15:{WED_note:"5×(3,3,3,3,2)",
+          FRI_note:"Unassisted 5×3"},
+      16:{WED_note:"MAX REP TEST — dead hang start, pronated grip, chin over bar, strict",
+          FRI_note:"MAX REP TEST"},
+    },
+    defaultSets:(week,day)=>{
+      if(day==="WED"){
+        const wedReps={
+          1:[1,1,1,1,1],2:[1,1,1,1,1],3:[1,1,1,1,1,1],
+          4:[1,1,1],
+          5:[2,1,1,1,1],6:[2,2,1,1,1],7:[2,2,2,1,1],
+          8:[2,1,1],
+          9:[3,2,2,1,1],10:[3,2,2,2,1],11:[3,3,2,2,1],
+          12:[2,2,1],
+          13:[3,3,2,2,2],14:[3,3,3,2,2],15:[3,3,3,3,2],
+          16:[null],
+        };
+        return (wedReps[week]||[null]).map((r,i)=>({id:i,reps:r,done:false,subType:"pu"}));
+      }
+      // FRI: deload = skip
+      if([4,8,12].includes(week)) return [];
+      // Ph1 (wk1-3): inv rows 3×8 + band 3×8 + hang 3×20s
+      if(week<=3) return [
+        ...Array(3).fill(null).map((_,i)=>({id:`ir${i}`,reps:8, done:false,subType:"inv_row",  label:`Inv Row ${i+1}`})),
+        ...Array(3).fill(null).map((_,i)=>({id:`ba${i}`,reps:8, done:false,subType:"band",     label:`Band ${i+1}`})),
+        ...Array(3).fill(null).map((_,i)=>({id:`dh${i}`,reps:20,done:false,subType:"dead_hang",label:`Hang ${i+1}`,timed:true})),
+      ];
+      // Ph2 (wk5-7): feet-elev rows 3×8 + light band 3×6 + hang 30s
+      if(week<=7) return [
+        ...Array(3).fill(null).map((_,i)=>({id:`ir${i}`,reps:8, done:false,subType:"inv_row",  label:`Elev Row ${i+1}`})),
+        ...Array(3).fill(null).map((_,i)=>({id:`ba${i}`,reps:6, done:false,subType:"band",     label:`Band ${i+1}`})),
+        ...Array(1).fill(null).map((_,i)=>({id:`dh${i}`,reps:30,done:false,subType:"dead_hang",label:`Hang ${i+1}`,timed:true})),
+      ];
+      // Ph3 (wk9-11): unassisted 3×3 + feet-elev rows 3×10 + hang 3×30s w/scap
+      if(week<=11) return [
+        ...Array(3).fill(null).map((_,i)=>({id:`pu${i}`,reps:3, done:false,subType:"pu",       label:`PU ${i+1}`})),
+        ...Array(3).fill(null).map((_,i)=>({id:`ir${i}`,reps:10,done:false,subType:"inv_row",  label:`Elev Row ${i+1}`})),
+        ...Array(3).fill(null).map((_,i)=>({id:`dh${i}`,reps:30,done:false,subType:"dead_hang",label:`Hang ${i+1}`,timed:true})),
+      ];
+      // Ph4 (wk13-15): unassisted 5×3
+      if(week<=15) return Array(5).fill(null).map((_,i)=>({id:`pu${i}`,reps:3,done:false,subType:"pu",label:`Set ${i+1}`}));
+      // wk16: max test
+      return [{id:"pu0",reps:null,done:false,subType:"pu",label:"Max Test"}];
+    },
+  },
+
+  // ── PUSH-UPS ──────────────────────────────────────────────────────────────────
+  // Each set has a subType: "ladder" | "incline" | "straight" | "amrap"
+  // Ladders show the target rung sequence (e.g. 1-2-3) as the label
+  // Straight sets and incline show a simple set number
+  pushups:{
+    label:"Push-ups", icon:"💪", goal:15,
+    protocol:{
+      1: {WED_note:"3 ladders (1-2-3) + 2×8 incline · rest 10-20s between rungs",
+          FRI_note:"3 ladders (1-2-3) + 2×8 incline"},
+      2: {WED_note:"3 ladders (1-2-3) + 2×10 incline",
+          FRI_note:"3 ladders (1-2-3) + 2×10 incline"},
+      3: {WED_note:"4 ladders (1-2-3) + 2×10 incline",
+          FRI_note:"4 ladders (1-2-3) + 2×10 incline"},
+      4: {WED_note:"DELOAD — 2 ladders (1-2-3) + 1×8 incline",
+          FRI_note:"DELOAD — 2 ladders (1-2-3) + 1×8 incline"},
+      5: {WED_note:"3 ladders (1-2-3-4) + 2×10 incline",
+          FRI_note:"3 ladders (1-2-3-4) + 2×10 incline"},
+      6: {WED_note:"3 ladders (1-2-3-4) + 2×10 incline",
+          FRI_note:"3 ladders (1-2-3-4) + 2×10 incline"},
+      7: {WED_note:"4 ladders (1-2-3-4) + 1×12 incline",
+          FRI_note:"4 ladders (1-2-3-4) + 1×12 incline"},
+      8: {WED_note:"DELOAD — 2 ladders (1-2-3) + 1×8 incline",
+          FRI_note:"DELOAD — 2 ladders (1-2-3) + 1×8 incline"},
+      9: {WED_note:"3 ladders (1-2-3-4-5) + 2×5 straight",
+          FRI_note:"3 ladders (1-2-3-4-5) + 2×5 straight"},
+      10:{WED_note:"3 ladders (1-2-3-4-5) + 2×6 straight",
+          FRI_note:"3 ladders (1-2-3-4-5) + 2×6 straight"},
+      11:{WED_note:"2 ladders (1-2-3-4-5-6) + 3×6 straight",
+          FRI_note:"2 ladders (1-2-3-4-5-6) + 3×6 straight"},
+      12:{WED_note:"DELOAD — 2 ladders (1-2-3-4) + 1×5 straight",
+          FRI_note:"DELOAD — 2 ladders (1-2-3-4) + 1×5 straight"},
+      13:{WED_note:"4×8 straight + 1 AMRAP",
+          FRI_note:"4×8 straight + 1 AMRAP"},
+      14:{WED_note:"4×9 straight + 1 AMRAP",
+          FRI_note:"4×9 straight + 1 AMRAP"},
+      15:{WED_note:"4×10 straight + 1 AMRAP",
+          FRI_note:"4×10 straight + 1 AMRAP"},
+      16:{WED_note:"MAX REP TEST — chest within 3in floor, full lockout, continuous to failure",
+          FRI_note:"MAX REP TEST"},
+    },
+    defaultSets:(week)=>{
+      // Returns sets with subType + label + target reps where known
+      // Ladders: each ladder = one set row labeled "Ladder N (1-2-3)" — log total reps of that ladder
+      // Incline / straight: each set = one row
+      const ladder=(n,rungs)=>Array(n).fill(null).map((_,i)=>({
+        id:`l${i}`,subType:"ladder",label:`Ladder ${i+1} (${rungs})`,
+        reps:rungs.split("-").reduce((a,x)=>a+ +x,0), // pre-fill with target total
+        done:false,
+      }));
+      const straight=(n,r,isAmrap=false)=>Array(n).fill(null).map((_,i)=>({
+        id:`s${i}`,subType:isAmrap&&i===n-1?"amrap":"straight",
+        label:isAmrap&&i===n-1?"AMRAP":`Set ${i+1}`,
+        reps:isAmrap&&i===n-1?null:r,done:false,amrap:isAmrap&&i===n-1,
+      }));
+      const incline=(n,r)=>Array(n).fill(null).map((_,i)=>({
+        id:`inc${i}`,subType:"incline",label:`Incline ${i+1}`,reps:r,done:false,
+      }));
+      switch(week){
+        // Phase 1
+        case 1:  return [...ladder(3,"1-2-3"),   ...incline(2,8)];
+        case 2:  return [...ladder(3,"1-2-3"),   ...incline(2,10)];
+        case 3:  return [...ladder(4,"1-2-3"),   ...incline(2,10)];
+        case 4:  return [...ladder(2,"1-2-3"),   ...incline(1,8)];   // deload
+        // Phase 2
+        case 5:  return [...ladder(3,"1-2-3-4"), ...incline(2,10)];
+        case 6:  return [...ladder(3,"1-2-3-4"), ...incline(2,10)];
+        case 7:  return [...ladder(4,"1-2-3-4"), ...incline(1,12)];
+        case 8:  return [...ladder(2,"1-2-3"),   ...incline(1,8)];   // deload
+        // Phase 3
+        case 9:  return [...ladder(3,"1-2-3-4-5"),...straight(2,5)];
+        case 10: return [...ladder(3,"1-2-3-4-5"),...straight(2,6)];
+        case 11: return [...ladder(2,"1-2-3-4-5-6"),...straight(3,6)];
+        case 12: return [...ladder(2,"1-2-3-4"),  ...straight(1,5)]; // deload
+        // Phase 4
+        case 13: return straight(5,8,true);
+        case 14: return straight(5,9,true);
+        case 15: return straight(5,10,true);
+        case 16: return [{id:"s0",subType:"amrap",label:"Max Test",reps:null,done:false,amrap:true}];
+        default: return straight(3,10);
+      }
+    },
+  },
+
+  plank:{
+    label:"Plank Hold", icon:"⏱", goal:90, timed:true,
+    protocol:{
+      // Phase 1 — +5s/week, deload = 2 sets same duration
+      1:{MON_note:"3×30s"},  2:{MON_note:"3×35s"},  3:{MON_note:"3×40s"},  4:{MON_note:"DELOAD — 2×30s"},
+      // Phase 2
+      5:{MON_note:"3×45s"},  6:{MON_note:"3×50s"},  7:{MON_note:"3×55s"},  8:{MON_note:"DELOAD — 2×40s"},
+      // Phase 3
+      9:{MON_note:"3×60s"},  10:{MON_note:"3×65s"}, 11:{MON_note:"3×70s"}, 12:{MON_note:"DELOAD — 2×50s"},
+      // Phase 4
+      13:{MON_note:"3×75s"}, 14:{MON_note:"3×80s"}, 15:{MON_note:"3×85s"}, 16:{MON_note:"3×90s"},
+    },
+    defaultSets:(week)=>{
+      // Target hold time per set, from PDF progression
+      const t={1:30,2:35,3:40,4:30, 5:45,6:50,7:55,8:40, 9:60,10:65,11:70,12:50, 13:75,14:80,15:85,16:90};
+      const n=isLiftDeload(week)?2:3; // deload = 2 sets, normal = 3 sets
+      return Array(n).fill(null).map((_,i)=>({id:i,reps:t[week]||30,done:false,timed:true}));
+    },
+  },
+
+  deadbug:{
+    label:"Dead Bug", icon:"🐛", goal:15,
+    protocol:{
+      // Phase 1 — +2 reps/week
+      1:{MON_note:"3×10 each side"},  2:{MON_note:"3×12 each side"}, 3:{MON_note:"3×12 each side"}, 4:{MON_note:"DELOAD — 2×10 each side"},
+      // Phase 2
+      5:{MON_note:"3×12 each side"},  6:{MON_note:"3×14 each side"}, 7:{MON_note:"3×14 each side"}, 8:{MON_note:"DELOAD — 2×10 each side"},
+      // Phase 3
+      9:{MON_note:"3×14 each side"},  10:{MON_note:"3×15 each side"},11:{MON_note:"3×15 each side"},12:{MON_note:"DELOAD — 2×12 each side"},
+      // Phase 4
+      13:{MON_note:"3×15 each side"}, 14:{MON_note:"3×15 each side"},15:{MON_note:"3×15 each side"},16:{MON_note:"3×15 each side"},
+    },
+    defaultSets:(week)=>{
+      const t={1:10,2:12,3:12,4:10, 5:12,6:14,7:14,8:10, 9:14,10:15,11:15,12:12, 13:15,14:15,15:15,16:15};
+      const n=isLiftDeload(week)?2:3;
+      return Array(n).fill(null).map((_,i)=>({id:i,reps:t[week]||10,done:false}));
+    },
+  },
+
+  hollowbody:{
+    label:"Hollow Body Hold", icon:"⏱", goal:60, timed:true,
+    protocol:{
+      // Phase 1 — +5s/week
+      1:{FRI_note:"3×20s"}, 2:{FRI_note:"3×25s"}, 3:{FRI_note:"3×30s"}, 4:{FRI_note:"DELOAD — 2×20s"},
+      // Phase 2
+      5:{FRI_note:"3×30s"}, 6:{FRI_note:"3×35s"}, 7:{FRI_note:"3×40s"}, 8:{FRI_note:"DELOAD — 2×25s"},
+      // Phase 3
+      9:{FRI_note:"3×45s"}, 10:{FRI_note:"3×50s"},11:{FRI_note:"3×55s"},12:{FRI_note:"DELOAD — 2×35s"},
+      // Phase 4
+      13:{FRI_note:"3×55s"},14:{FRI_note:"3×60s"},15:{FRI_note:"3×60s"},16:{FRI_note:"3×60s"},
+    },
+    defaultSets:(week)=>{
+      const t={1:20,2:25,3:30,4:20, 5:30,6:35,7:40,8:25, 9:45,10:50,11:55,12:35, 13:55,14:60,15:60,16:60};
+      const n=isLiftDeload(week)?2:3;
+      return Array(n).fill(null).map((_,i)=>({id:i,reps:t[week]||20,done:false,timed:true}));
+    },
+  },
+};
+
+// ─── WEIGHTED LIFTS ───────────────────────────────────────────────────────────
+// Full exercise list from PDF, all phases:
+//
+// MONDAY — Lower Body + Easy Jog
+//   Back Squat         T1   4×5+AMRAP (ph1-2) → 5×3+AMRAP (ph3-4)
+//   Romanian DL        T2   3×10 (ph1-2) → 3×8 (ph3-4)
+//   Bulgarian Split Sq T2   3×10 each (ph1-2) → 3×8 (ph3-4), add DBs wk3
+//   Plank Hold         BW   3×30s → progressive
+//   Dead Bug           BW   3×10 each side → progressive
+//   Post-lift jog      RUN  1.5 mi easy
+//
+// WEDNESDAY — Upper Body + Easy Jog
+//   Overhead Press     T1 (ph1) / T2 (ph2-4)   4×5+AMRAP→3×8
+//   DB Floor Press     T2 (ph1) / T1 (ph2-4)   3×10→4×5+AMRAP
+//   Pull-up prog       BW   per weekly protocol
+//   Push-up prog       BW   per weekly protocol
+//   DB Rows            T2   3×10 (ph1-2) → 3×8 (ph3-4), each arm
+//   Post-lift jog      RUN  1.0–1.25 mi easy
+//
+// FRIDAY — Full Body (DL Primary)
+//   Conv. Deadlift     T1   4×5+AMRAP (ph1-2) → 5×3+AMRAP (ph3-4)
+//   Front Squat        T2   3×6 (ph1-2 only)
+//   Back Squat T2      T2   3×8 @ 95-105 lbs (ph3-4, replaces Front Squat)
+//   Pull-up vol        BW   per weekly protocol
+//   Push-up vol        BW   per weekly protocol
+//   KB Swing           ACC  3×15
+//   Hollow Body Hold   BW   3×20s → progressive
+
+// Starting weights @ week 8 (your numbers):
+// squat T1: 100lb · rdl: 75lb · bss: 30lb DBs
+// ohp: 50lb · floorpress: 25lb DBs · rows: 25lb ea
+// deadlift: 135lb · frontsquat: ~65lb (back-calc) · squat_t2: 95lb (ph3+ starts)
+// kbswing: 30lb flat
+
+const LIFT_META = {
+  squat:      { label:"Back Squat",         t:"T1",   unit:"lbs",    note:"Primary · +5lb/session" },
+  rdl:        { label:"Romanian DL",        t:"T2",   unit:"lbs",    note:"+5lb/week" },
+  bss:        { label:"Bulgarian Split Sq", t:"T2",   unit:"lb DBs", note:"Each leg · +2.5lb/wk" },
+  ohp:        { label:"Overhead Press",     t:"T1→T2",unit:"lbs",    note:"T1 ph1 → T2 ph2+ · +2.5lb/session" },
+  floorpress: { label:"DB Floor Press",     t:"T2→T1",unit:"lb DBs", note:"T2 ph1 → T1 ph2+ · +2.5lb/wk" },
+  rows:       { label:"DB Rows",            t:"T2",   unit:"lb ea",  note:"Each arm · +2.5lb/wk" },
+  deadlift:   { label:"Conv. Deadlift",     t:"T1",   unit:"lbs",    note:"Primary · +5lb/session" },
+  frontsquat: { label:"Front Squat",        t:"T2",   unit:"lbs",    note:"Ph 1-2 only · 3×6 · +5lb/wk" },
+  squat_t2:   { label:"Back Squat (T2)",    t:"T2",   unit:"lbs",    note:"Ph 3-4 · replaces Front Squat · 3×8" },
+  kbswing:    { label:"KB Swing",           t:"ACC",  unit:"lbs",    note:"3×15 · technique focus" },
+};
+
+// Weight builder: starts at `base` on `startWk`, adds `step` each non-deload week after
+const buildWeights = (base, step, startWk = 8) => {
+  const w = {};
+  // Weeks at and after startWk
+  let running = base;
+  for (let i = startWk; i <= 16; i++) {
+    w[i] = running;
+    if (!isLiftDeload(i)) running += step; // progress after non-deload weeks
+  }
+  // Weeks before startWk (back-calculated)
+  running = base;
+  for (let i = startWk - 1; i >= 1; i--) {
+    if (!isLiftDeload(i)) running -= step;
+    w[i] = Math.max(45, running);
+  }
+  return w;
+};
+
+const WEIGHT_TABLE = {
+  squat:      buildWeights(100,  5,   8),
+  rdl:        buildWeights(75,   5,   8),
+  bss:        buildWeights(30,   2.5, 8),
+  // OHP: T1 in ph1, T2 in ph2+. Same weight progression regardless of tier label.
+  ohp:        buildWeights(50,   2.5, 8),
+  // Floor press: T2 in ph1, T1 in ph2+
+  floorpress: buildWeights(25,   2.5, 8),
+  rows:       buildWeights(25,   2.5, 8),
+  deadlift:   buildWeights(135,  5,   8),
+  // Front Squat: ph1-2 only. Back-calc from ~75 @ wk8
+  frontsquat: buildWeights(65,   5,   8),
+  // Back Squat T2: ph3-4 (wk9+), starts 95lb
+  squat_t2:   buildWeights(95,   2.5, 9),
+  kbswing:    Object.fromEntries(Array.from({length:16},(_,i)=>[i+1,30])),
+};
+
+const suggestedWeight = (k, w) => WEIGHT_TABLE[k]?.[w] ?? 0;
+
+// ── SCHEME LOGIC ──
+// OHP: T1 (4×5+AMRAP) weeks 1-8, T2 (3×8) weeks 9-16
+// Floor Press: T2 (3×10) weeks 1-8, T1 (4×5+AMRAP → 5×3+AMRAP) weeks 9-16
+// Front Squat: only weeks 1-8, 3×6
+// Back Squat T2: only weeks 9-16, 3×8
+
+// ── SET/REP SCHEMES — exact from PDF ──────────────────────────────────────────
+// PDF deload rule: "Reduce total sets by 40-50% while keeping weight on the bar"
+//   5×3+AMRAP → 3×3 (no AMRAP on deload)       per "5x3 becomes 3x3"
+//   4×5+AMRAP → 2×5 (no AMRAP on deload)        same proportional cut
+//   3×10      → 2×8                              per "3x10 becomes 2x8"
+//   3×8       → 2×6                              proportional
+//   3×6 (front squat) → 2×5
+//   3×15 (KB swing)   → 2×12
+// OHP: T1 (4×5+AMRAP) weeks 1-8 → T2 (3×8) weeks 9-16
+// Floor Press: T2 (3×10) weeks 1-8 → T1 (5×3+AMRAP) weeks 9-16
+
+const defaultLiftSets = (k, w) => {
+  const wt = suggestedWeight(k, w);
+  const dl = isLiftDeload(w);
+  const ph2 = w >= 9; // phases 3-4 (weeks 9-16)
+
+  // T1 normal: 4×5+AMRAP (ph1-2) or 5×3+AMRAP (ph3-4)
+  // T1 deload: 2×5 no AMRAP (ph1-2) or 3×3 no AMRAP (ph3-4) per PDF "5x3 becomes 3x3"
+  const t1Sets = () => {
+    if (dl) {
+      const n = ph2 ? 3 : 2;
+      const r = ph2 ? 3 : 5;
+      return Array(n).fill(null).map((_,i)=>({id:i,weight:wt,reps:r,amrap:false,done:false}));
+    }
+    const n = ph2 ? 5 : 4;
+    const r = ph2 ? 3 : 5;
+    return [
+      ...Array(n-1).fill(null).map((_,i)=>({id:i,weight:wt,reps:r,amrap:false,done:false})),
+      {id:n-1,weight:wt,reps:null,amrap:true,done:false},
+    ];
+  };
+
+  // T2 normal/deload
+  const t2 = (normalSets, normalReps, deloadSets, deloadReps) =>
+    Array(dl?deloadSets:normalSets).fill(null)
+      .map((_,i)=>({id:i,weight:wt,reps:dl?deloadReps:normalReps,amrap:false,done:false}));
+
+  switch(k) {
+    // ── MONDAY ──────────────────────────────────────────────────────────────
+    case "squat":
+      // T1: 4×5+AMRAP (ph1-2), 5×3+AMRAP (ph3-4)
+      // Deload: 2×5 (ph1-2), 3×3 (ph3-4) — no AMRAP
+      return t1Sets();
+
+    case "rdl":
+      // T2: 3×10 (ph1-2) → 3×8 (ph3-4)
+      // Deload: 2×8 (ph1-2), 2×6 (ph3-4)
+      return ph2 ? t2(3,8,2,6) : t2(3,10,2,8);
+
+    case "bss":
+      // T2: 3×10 each (ph1-2) → 3×8 each (ph3-4)
+      // Deload: 2×8 (ph1-2), 2×6 (ph3-4)
+      return ph2 ? t2(3,8,2,6) : t2(3,10,2,8);
+
+    // ── WEDNESDAY ───────────────────────────────────────────────────────────
+    case "ohp":
+      // Phase 1-2 (wk1-8): T1 — 4×5+AMRAP → deload 2×5
+      // Phase 3-4 (wk9-16): T2 — 3×8 → deload 2×6
+      if (!ph2) return t1Sets();
+      return t2(3,8,2,6);
+
+    case "floorpress":
+      // Phase 1-2 (wk1-8): T2 — 3×10 → deload 2×8
+      // Phase 3-4 (wk9-16): T1 — 5×3+AMRAP → deload 3×3
+      if (ph2) return t1Sets();
+      return t2(3,10,2,8);
+
+    case "rows":
+      // T2: 3×10 each arm (ph1-2) → 3×8 each arm (ph3-4)
+      // Deload: 2×8 (ph1-2), 2×6 (ph3-4)
+      return ph2 ? t2(3,8,2,6) : t2(3,10,2,8);
+
+    // ── FRIDAY ──────────────────────────────────────────────────────────────
+    case "deadlift":
+      // T1: 4×5+AMRAP (ph1-2), 5×3+AMRAP (ph3-4)
+      // Deload: 2×5 (ph1-2), 3×3 (ph3-4)
+      return t1Sets();
+
+    case "frontsquat":
+      // T2: 3×6 (ph1-2 only)
+      // Deload: 2×5
+      return t2(3,6,2,5);
+
+    case "squat_t2":
+      // T2: 3×8 (ph3-4, replaces front squat)
+      // Deload: 2×6
+      return t2(3,8,2,6);
+
+    case "kbswing":
+      // ACC: 3×15 → deload 2×12
+      return t2(3,15,2,12);
+
+    default:
+      return t2(3,10,2,8);
+  }
+};
+
+const schemeLabel = (k, w) => {
+  const dl = isLiftDeload(w);
+  const ph2 = w >= 9;
+  // T1 labels — deload removes AMRAP per PDF
+  const t1 = () => {
+    if (dl) return ph2 ? "3×3 ↓ (deload)" : "2×5 ↓ (deload)";
+    return ph2 ? "5×3 + AMRAP" : "4×5 + AMRAP";
+  };
+  switch(k) {
+    case "squat":      return t1();
+    case "rdl":        return ph2?(dl?"2×6 ↓":"3×8"):(dl?"2×8 ↓":"3×10");
+    case "bss":        return ph2?(dl?"2×6 ea ↓":"3×8 ea"):(dl?"2×8 ea ↓":"3×10 ea");
+    case "ohp":        return !ph2?(`${t1()} [T1]`):(dl?"2×6 ↓ [T2]":"3×8 [T2]");
+    case "floorpress": return ph2?(`${t1()} [T1]`):(dl?"2×8 ↓ [T2]":"3×10 [T2]");
+    case "rows":       return ph2?(dl?"2×6 ea ↓":"3×8 ea"):(dl?"2×8 ea ↓":"3×10 ea");
+    case "deadlift":   return t1();
+    case "frontsquat": return dl?"2×5 ↓":"3×6";
+    case "squat_t2":   return dl?"2×6 ↓":"3×8";
+    case "kbswing":    return dl?"2×12 ↓":"3×15";
+    default: return "3×10";
+  }
+};
+
+// Which lifts appear on which day, and in which phase
+// frontsquat: ph1-2 (wk1-8). squat_t2: ph3-4 (wk9-16).
+const getFridayLifts = (w) =>
+  w <= 8
+    ? ["deadlift","frontsquat","kbswing"]
+    : ["deadlift","squat_t2","kbswing"];
+
+const DAY_EXERCISES = {
+  MON: { lifts: ["squat","rdl","bss"],           bw: ["plank","deadbug"] },
+  WED: { lifts: ["ohp","floorpress","rows"],      bw: ["pullups","pushups"] },
+  FRI: { lifts: [],                               bw: ["pullups","pushups","hollowbody"] },
+  // FRI lifts are dynamic — use getFridayLifts(week) in render
+};
+const DAY_META = {
+  MON: { label:"Monday",    sub:"Lower Body" },
+  WED: { label:"Wednesday", sub:"Upper Body" },
+  FRI: { label:"Friday",    sub:"Full Body"  },
+};
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+const STORE="tracker_v4";
+const load=()=>{try{return JSON.parse(localStorage.getItem(STORE)||"{}");}catch{return{};}};
+const save=(d)=>{try{localStorage.setItem(STORE,JSON.stringify(d));}catch{}};
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const liftVol=(sets)=>sets.reduce((a,s)=>a+(s.done&&s.weight&&s.reps?s.weight*s.reps:0),0);
+const e1rm=(w,r)=>r&&w?+(w*(1+r/30)).toFixed(1):null;
+const totalBwReps=(sets)=>sets.reduce((a,s)=>a+(s.done&&s.reps?+s.reps:0),0);
+const bwHist=(data,key)=>Object.entries(data).flatMap(([week,days])=>
+  Object.values(days).flatMap(day=>{
+    const sets=day["bw_"+key];if(!sets||!sets.length)return[];
+    const best=sets.reduce((a,s)=>s.done&&s.reps&&+s.reps>a?+s.reps:a,0);
+    return[{week:+week,best,total:totalBwReps(sets)}];
+  })).sort((a,b)=>a.week-b.week);
+const liftHist=(data,key)=>Object.entries(data).flatMap(([week,days])=>
+  Object.values(days).flatMap(day=>{
+    const sets=day["lift_"+key];if(!sets||!sets.length)return[];
+    let bW=0,vol=0,bE=0;
+    sets.forEach(s=>{if(s.weight)bW=Math.max(bW,s.weight);if(s.weight&&s.reps){vol+=s.weight*s.reps;bE=Math.max(bE,e1rm(s.weight,s.reps)||0);}});
+    return[{week:+week,bestW:bW,vol,bestE:bE}];
+  })).sort((a,b)=>a.week-b.week);
+
+// parse target miles from plan string like "4 mi easy" → 4
+const parseMiles=(str)=>{if(!str)return null;const m=str.match(/(\d+(?:\.\d+)?)\s*mi/);return m?+m[1]:null;};
+
+// ─── RUN DAY CARD (stable — outside App to prevent remount on parent re-render) ──
+// Uses local uncontrolled inputs + onBlur to commit, so typing never triggers
+// a parent re-render that would dismiss the mobile keyboard.
+function RunDayCard({dayKey,label,targetStr,log,accentC,onSave,onToggleDone,weekKey}){
+  const target=parseMiles(targetStr);
+  const pct=target&&+log.miles?Math.min(100,Math.round((+log.miles/target)*100)):0;
+  const INP={width:"100%",background:"#18181b",border:"1px solid #27272a",borderRadius:5,
+    color:"#f1f5f9",fontFamily:"'IBM Plex Mono',monospace",fontSize:13,padding:"5px 8px",outline:"none"};
+  return(
+    <div style={{background:"#111113",border:`1px solid ${log.done?"#166534":"#1e1e22"}`,borderRadius:10,padding:"11px 12px",marginBottom:8}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+        <div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:700,
+            textTransform:"uppercase",letterSpacing:"0.04em",color:log.done?"#34d399":"#f1f5f9"}}>
+            {label}{log.done&&" ✓"}
+          </div>
+          <div style={{fontSize:10,color:"#52525b",marginTop:1}}>{targetStr}</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+          {target&&<span style={{fontSize:9,color:"#52525b"}}>{target} mi target</span>}
+          {+log.miles>0&&<span style={{fontSize:11,fontWeight:600,color:accentC}}>{log.miles} mi logged</span>}
+        </div>
+      </div>
+      {target&&+log.miles>0&&(
+        <div style={{height:3,background:"#27272a",borderRadius:2,marginBottom:8,overflow:"hidden"}}>
+          <div style={{height:"100%",borderRadius:2,width:`${pct}%`,
+            background:pct>=100?"#22c55e":accentC,transition:"width 0.4s"}}/>
+        </div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+        <div>
+          <div style={{fontSize:9,color:"#52525b",marginBottom:3}}>MILES ACTUAL</div>
+          <input style={INP} type="number" step="0.1" min="0"
+            placeholder={target||"0"}
+            key={`${weekKey}-${dayKey}-mi`}
+            defaultValue={log.miles||""}
+            onBlur={e=>onSave("miles",e.target.value)}/>
+        </div>
+        <div>
+          <div style={{fontSize:9,color:"#52525b",marginBottom:3}}>AVG PACE (mm:ss)</div>
+          <input style={INP} type="text" placeholder="11:30"
+            key={`${weekKey}-${dayKey}-pace`}
+            defaultValue={log.pace||""}
+            onBlur={e=>onSave("pace",e.target.value)}/>
+        </div>
+      </div>
+      <div style={{marginBottom:6}}>
+        <div style={{fontSize:9,color:"#52525b",marginBottom:3}}>NOTES / FEEL</div>
+        <input style={{...INP,fontSize:11}} type="text" placeholder="how did it feel?"
+          key={`${weekKey}-${dayKey}-notes`}
+          defaultValue={log.notes||""}
+          onBlur={e=>onSave("notes",e.target.value)}/>
+      </div>
+      <button onClick={onToggleDone}
+        style={{width:"100%",padding:"7px",borderRadius:6,border:"none",cursor:"pointer",
+          fontFamily:"'IBM Plex Mono',monospace",fontSize:11,letterSpacing:"0.08em",
+          background:log.done?"#166534":"#1a1a1e",color:log.done?"#86efac":"#52525b",transition:"all 0.15s"}}>
+        {log.done?"✓ COMPLETE — tap to unmark":"mark complete"}
+      </button>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const TODAY = new Date("2026-06-03");
+  const [data, setData]         = useState(load);
+  const [liftWeek, setLiftWeek] = useState(()=>getLiftWeek(TODAY));
+  const [liftDay,  setLiftDay]  = useState("MON");
+  const [view, setView]         = useState("runs"); // runs | lift | stats
+  const [marathonWk, setMarathonWk] = useState(()=>getMarathonWeek(TODAY));
+  const [statsTab, setStatsTab] = useState("bw");
+  const [activeStat, setActiveStat] = useState(null);
+  const [toast, setToast]       = useState("");
+
+  useEffect(()=>{save(data);},[data]);
+  const showToast=(m)=>{setToast(m);setTimeout(()=>setToast(""),2400);};
+
+  // ── BACKUP: Export all data to a JSON file in Files app ──
+  const exportData=()=>{
+    try{
+      const payload={app:"training-log",version:"v4",exportedAt:new Date().toISOString(),data};
+      const json=JSON.stringify(payload,null,2);
+      const blob=new Blob([json],{type:"application/json"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      const stamp=new Date().toISOString().slice(0,10);
+      a.href=url; a.download=`training-log-backup-${stamp}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      showToast("Backup downloaded — save to Files \u2713");
+    }catch(e){ showToast("Export failed"); }
+  };
+
+  // ── RESTORE: Import data from a previously exported JSON file ──
+  const importData=(file)=>{
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try{
+        const parsed=JSON.parse(e.target.result);
+        const incoming = parsed.data!==undefined ? parsed.data : parsed;
+        if(typeof incoming!=="object"||incoming===null) throw new Error("bad");
+        setData(incoming);
+        showToast("Backup restored \u2713");
+      }catch(err){ showToast("Invalid backup file"); }
+    };
+    reader.onerror=()=>showToast("Couldn't read file");
+    reader.readAsText(file);
+  };
+
+  const phase=getLiftPhase(liftWeek);
+  const deload=isLiftDeload(liftWeek);
+
+  // ── Run data helpers ──
+  const getRunLog=(mWk,runDay)=>data?.runs?.[mWk]?.[runDay]||{miles:"",pace:"",notes:"",done:false};
+  const updateRun=(mWk,runDay,field,val)=>{
+    setData(prev=>{
+      const c=JSON.parse(JSON.stringify(prev));
+      if(!c.runs)c.runs={};
+      if(!c.runs[mWk])c.runs[mWk]={};
+      if(!c.runs[mWk][runDay])c.runs[mWk][runDay]={miles:"",pace:"",notes:"",done:false};
+      c.runs[mWk][runDay][field]=val;
+      return c;
+    });
+  };
+
+  // ── Lift data helpers ──
+  const getLiftSets=useCallback((w,d,k)=>data?.[w]?.[d]?.["lift_"+k]||defaultLiftSets(k,w),[data]);
+  const getBwSets=useCallback((w,d,k)=>{
+    const stored=data?.[w]?.[d]?.["bw_"+k];
+    if(stored)return stored;
+    return BW_PROTOCOLS[k]?.defaultSets(w,d)||[];
+  },[data]);
+  const updateLift=(w,d,k,idx,field,val)=>{
+    setData(prev=>{const c=JSON.parse(JSON.stringify(prev));
+      if(!c[w])c[w]={};if(!c[w][d])c[w][d]={};
+      if(!c[w][d]["lift_"+k])c[w][d]["lift_"+k]=defaultLiftSets(k,w);
+      c[w][d]["lift_"+k][idx][field]=val;return c;});
+  };
+  const updateBw=(w,d,k,idx,field,val)=>{
+    setData(prev=>{const c=JSON.parse(JSON.stringify(prev));
+      if(!c[w])c[w]={};if(!c[w][d])c[w][d]={};
+      if(!c[w][d]["bw_"+k])c[w][d]["bw_"+k]=BW_PROTOCOLS[k].defaultSets(w,d);
+      c[w][d]["bw_"+k][idx][field]=val;return c;});
+  };
+  const resetLiftDay=()=>{
+    setData(prev=>{const c=JSON.parse(JSON.stringify(prev));if(c[liftWeek])delete c[liftWeek][liftDay];return c;});
+    showToast("Day reset");
+  };
+
+  // PRs
+  const bwPR={};Object.keys(BW_PROTOCOLS).forEach(k=>{bwPR[k]=bwHist(data,k).reduce((a,h)=>Math.max(a,h.best),0)||null;});
+  const liftPR={};Object.keys(LIFT_META).forEach(k=>{liftPR[k]=liftHist(data,k).reduce((a,h)=>Math.max(a,h.bestE),0)||null;});
+
+  const mPlan = MARATHON_PLAN[marathonWk-1]||MARATHON_PLAN[0];
+  const mColor = MARATHON_PHASE_COLORS[mPlan.phase];
+
+  // Total logged miles this marathon week
+  const wkRunLog = data?.runs?.[marathonWk]||{};
+  const loggedMilesThisWk = ["tue","thu","sat","mon_jog","wed_jog"].reduce((a,d)=>a+(+wkRunLog[d]?.miles||0),0);
+
+  // Marathon progress: weeks with any run logged
+  const completedRunWks=Object.keys(data?.runs||{}).filter(w=>
+    Object.values(data.runs[w]).some(r=>r.done||+r.miles>0)
+  ).length;
+
+  const completedLiftWks=Object.keys(data).filter(k=>k!=="runs"&&Object.values(data[k]||{}).some(d=>
+    Object.keys(d).some(k2=>(d[k2]||[]).some(s=>s.done))
+  )).length;
+
+  // ─── RENDER HELPERS ───────────────────────────────────────────────────────
+  // RunDayCard renders via the stable component defined outside App
+
+  // ─── JSX ──────────────────────────────────────────────────────────────────
+  return(
+    <div style={{minHeight:"100vh",background:"#0c0c0e",color:"#f1f5f9",
+      fontFamily:"'IBM Plex Mono',monospace","--pc":phase.color}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700;800&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-thumb{background:#27272a;}
+        .pb100{padding-bottom:100px;}
+        .hdr{background:#0c0c0e;border-bottom:1px solid #18181b;position:sticky;top:0;z-index:50;}
+        .tab-row{display:flex;border-top:1px solid #18181b;}
+        .tab-btn{flex:1;padding:9px 0;background:none;border:none;font-family:'IBM Plex Mono',monospace;
+          font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;color:#52525b;
+          border-bottom:2px solid transparent;transition:all 0.15s;}
+        .tab-btn.on{color:#f1f5f9;border-bottom-color:var(--pc);}
+        .wk-strip{padding:8px 16px;overflow-x:auto;display:flex;gap:4px;scrollbar-width:none;}
+        .wk-strip::-webkit-scrollbar{display:none;}
+        .wk-btn{min-width:30px;height:30px;border-radius:5px;border:1px solid transparent;
+          font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.12s;
+          position:relative;display:flex;align-items:center;justify-content:center;}
+        .wk-dot{position:absolute;top:2px;right:2px;width:3px;height:3px;border-radius:50%;}
+        .day-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:0 16px 10px;}
+        .day-tab{padding:7px 4px;border-radius:8px;border:1px solid #18181b;background:#111113;
+          font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;text-align:center;
+          letter-spacing:0.04em;text-transform:uppercase;transition:all 0.12s;color:#52525b;}
+        .day-tab.on{background:#1a1a1e;border-color:var(--pc);color:#f1f5f9;}
+        .card{margin:0 16px 10px;border-radius:10px;background:#111113;border:1px solid #1e1e22;overflow:hidden;}
+        .card-hdr{padding:9px 12px;border-bottom:1px solid #1e1e22;display:flex;align-items:center;justify-content:space-between;}
+        .card-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
+        .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;}
+        .set-row{display:grid;align-items:center;padding:6px 12px;border-bottom:1px solid #18181b;}
+        .set-row:last-child{border-bottom:none;}
+        .set-row.done-row{background:#0d1a12;}
+        .bw-set-row{display:grid;grid-template-columns:24px 1fr 32px;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #18181b;}
+        .bw-set-row:last-child{border-bottom:none;}
+        .bw-set-row.done-row{background:#0d1a12;}
+        .inp{background:#18181b;border:1px solid #27272a;border-radius:5px;color:#f1f5f9;
+          font-family:'IBM Plex Mono',monospace;font-size:13px;padding:5px 8px;text-align:center;
+          outline:none;transition:border-color 0.15s;width:100%;}
+        .inp:focus{border-color:var(--pc);}
+        .inp.amrap{border-style:dashed;}
+        .done-btn{width:28px;height:28px;border-radius:6px;border:1px solid #27272a;background:#18181b;
+          cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.12s;flex-shrink:0;}
+        .done-btn.chk{background:#166534;border-color:#15803d;}
+        .vol-row{padding:7px 12px;display:flex;justify-content:space-between;border-top:1px solid #1e1e22;background:#0d0d10;}
+        .slbl{font-size:9px;color:#52525b;text-align:center;margin-bottom:2px;}
+        .set-num{font-size:10px;color:#52525b;font-weight:600;}
+        .section-lbl{padding:4px 16px 7px;font-size:9px;color:#52525b;letter-spacing:0.12em;text-transform:uppercase;}
+        .reset-btn{background:none;border:1px solid #27272a;border-radius:6px;color:#52525b;
+          font-family:'IBM Plex Mono',monospace;font-size:10px;padding:4px 10px;cursor:pointer;letter-spacing:0.05em;transition:all 0.12s;}
+        .reset-btn:hover{border-color:#ef4444;color:#ef4444;}
+        .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 16px 10px;}
+        .stat-card{background:#111113;border:1px solid #1e1e22;border-radius:10px;padding:11px;cursor:pointer;transition:border-color 0.15s;}
+        .stat-card:hover,.stat-card.active{border-color:var(--pc);}
+        .stat-pr{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--pc);line-height:1;margin-top:3px;}
+        .chart-section{margin:0 16px 10px;background:#111113;border:1px solid #1e1e22;border-radius:10px;padding:13px;}
+        .chart-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;}
+        .chart-bars{display:flex;align-items:flex-end;gap:2px;height:80px;}
+        .chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;}
+        .chart-bar{width:100%;border-radius:2px 2px 0 0;min-height:2px;transition:height 0.4s;}
+        .chart-wlbl{font-size:7px;color:#52525b;}
+        .prog-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #18181b;}
+        .prog-row:last-child{border-bottom:none;}
+        .mini-bar{flex:1;height:4px;background:#27272a;border-radius:2px;overflow:hidden;}
+        .mini-fill{height:100%;border-radius:2px;transition:width 0.5s;}
+        .stats-tabs{display:flex;gap:0;padding:0 16px 10px;}
+        .stab{flex:1;padding:7px;background:#111113;border:1px solid #1e1e22;font-family:'IBM Plex Mono',monospace;
+          font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;color:#52525b;transition:all 0.12s;}
+        .stab:first-child{border-radius:8px 0 0 8px;}.stab:last-child{border-radius:0 8px 8px 0;}
+        .stab.on{background:#1a1a1e;color:#f1f5f9;border-color:var(--pc);}
+        .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:#15803d;color:#dcfce7;
+          padding:7px 18px;border-radius:99px;font-size:11px;letter-spacing:0.05em;z-index:200;white-space:nowrap;
+          animation:popUp 0.2s ease;}
+        @keyframes popUp{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+        @keyframes fi{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+        .fi{animation:fi 0.2s ease;}
+        .divider{margin:4px 16px 10px;border:none;border-top:1px solid #1e1e22;}
+        input[type=number]::-webkit-inner-spin-button{opacity:0.4;}
+      `}</style>
+
+      <div className="pb100">
+
+        {/* ── HEADER ── */}
+        <div className="hdr">
+          <div style={{padding:"10px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:21,fontWeight:800,
+                letterSpacing:"0.04em",textTransform:"uppercase"}}>Training Log</div>
+              <div style={{fontSize:9,color:"#52525b",marginTop:1,letterSpacing:"0.08em",textTransform:"uppercase"}}>
+                <span style={{color:phase.color}}>Lift Wk {liftWeek}</span>
+                <span style={{color:"#27272a"}}> · </span>
+                <span style={{color:mColor}}>Run Wk {marathonWk}</span>
+                <span style={{color:"#27272a"}}> · </span>
+                {fmtDate(TODAY)}
+              </div>
+            </div>
+            <div style={{textAlign:"right",fontSize:9,paddingTop:2}}>
+              {bwPR.pullups&&<div style={{color:phase.color}}>↑ {bwPR.pullups} pull-ups</div>}
+              <div style={{color:"#52525b"}}>{completedLiftWks}/16 lift · {completedRunWks}/29 run</div>
+            </div>
+          </div>
+          <div className="tab-row">
+            {[["runs","🏃 Runs"],["lift","🏋 Lifts"],["stats","📈 Stats"]].map(([id,lbl])=>(
+              <button key={id} className={`tab-btn${view===id?" on":""}`}
+                onClick={()=>{setView(id);setActiveStat(null);}}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════
+            RUN TAB
+        ══════════════════════════════════════════════════════════════════ */}
+        {view==="runs"&&(
+          <div className="fi">
+            {/* Marathon week strip */}
+            <div style={{padding:"8px 16px 4px",fontSize:9,color:"#52525b",letterSpacing:"0.1em",textTransform:"uppercase"}}>
+              Marathon Plan — Week
+            </div>
+            <div className="wk-strip">
+              {MARATHON_PLAN.map(({wk,phase:ph,cutback})=>{
+                const c=MARATHON_PHASE_COLORS[ph];
+                const isCur=wk===marathonWk;
+                const hasData=data?.runs?.[wk]&&Object.values(data.runs[wk]).some(r=>r.done||+r.miles>0);
+                return(
+                  <button key={wk} className="wk-btn"
+                    style={{
+                      background:isCur?c:hasData?c+"22":"#18181b",
+                      color:isCur?"#0c0c0e":hasData?c:"#52525b",
+                      borderColor:cutback?c+"66":"transparent",
+                      fontWeight:isCur?"600":"400",minWidth:wk>=10?28:26,
+                    }}
+                    onClick={()=>setMarathonWk(wk)}>
+                    {wk}
+                    {hasData&&!isCur&&<span className="wk-dot" style={{background:c}}/>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Week header card */}
+            <div style={{margin:"0 16px 10px",background:"#111113",border:`1px solid ${mColor}33`,
+              borderRadius:10,padding:"11px 13px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                    <span className="badge" style={{background:mColor+"22",color:mColor}}>{mPlan.phase}</span>
+                    {mPlan.cutback&&<span className="badge" style={{background:"#f59e0b22",color:"#f59e0b"}}>■ Cutback</span>}
+                  </div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,letterSpacing:"0.04em"}}>
+                    Marathon Week {marathonWk}
+                  </div>
+                  <div style={{fontSize:10,color:"#52525b",marginTop:1}}>{mPlan.dates}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:800,color:mColor,lineHeight:1}}>
+                    {mPlan.miles||"—"}
+                  </div>
+                  <div style={{fontSize:9,color:"#52525b"}}>target mi/wk</div>
+                  {loggedMilesThisWk>0&&(
+                    <div style={{fontSize:10,color:"#a1a1aa",marginTop:2}}>{loggedMilesThisWk.toFixed(1)} logged</div>
+                  )}
+                </div>
+              </div>
+              {/* Weekly progress bar */}
+              {mPlan.miles&&(
+                <div style={{marginTop:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#52525b",marginBottom:4}}>
+                    <span>Weekly mileage</span>
+                    <span>{loggedMilesThisWk.toFixed(1)}/{mPlan.miles} mi</span>
+                  </div>
+                  <div style={{height:4,background:"#27272a",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",borderRadius:2,
+                      width:`${Math.min(100,(loggedMilesThisWk/mPlan.miles)*100)}%`,
+                      background:loggedMilesThisWk>=mPlan.miles?"#22c55e":mColor,transition:"width 0.4s"}}/>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Post-lift jogs (Mon + Wed) */}
+            <div className="section-lbl">Post-Lift Jogs — Mon & Wed (~2 mi optional)</div>
+            <div style={{padding:"0 16px 10px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[["mon_jog","Mon Jog","2 mi easy"],["wed_jog","Wed Jog","2 mi easy"]].map(([k,lbl,tgt])=>{
+                const log=getRunLog(marathonWk,k);
+                return(
+                  <div key={k} style={{background:"#111113",border:`1px solid ${log.done?"#166534":"#1e1e22"}`,
+                    borderRadius:9,padding:"10px"}}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,
+                      textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:2,
+                      color:log.done?"#34d399":"#a1a1aa"}}>{lbl} {log.done&&"✓"}</div>
+                    <div style={{fontSize:9,color:"#52525b",marginBottom:6}}>{tgt}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:6}}>
+                      <div>
+                        <div style={{fontSize:8,color:"#52525b",marginBottom:2}}>MI</div>
+                        <input style={{width:"100%",background:"#18181b",border:"1px solid #27272a",borderRadius:4,
+                          color:"#f1f5f9",fontFamily:"'IBM Plex Mono',monospace",fontSize:12,padding:"4px 6px",outline:"none"}}
+                          type="number" step="0.1" min="0" placeholder="2.0"
+                          key={`${k}-mi-${marathonWk}`}
+                          defaultValue={log.miles||""}
+                          onBlur={e=>updateRun(marathonWk,k,"miles",e.target.value)}/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:8,color:"#52525b",marginBottom:2}}>PACE</div>
+                        <input style={{width:"100%",background:"#18181b",border:"1px solid #27272a",borderRadius:4,
+                          color:"#f1f5f9",fontFamily:"'IBM Plex Mono',monospace",fontSize:12,padding:"4px 6px",outline:"none"}}
+                          type="text" placeholder="11:30"
+                          key={`${k}-pace-${marathonWk}`}
+                          defaultValue={log.pace||""}
+                          onBlur={e=>updateRun(marathonWk,k,"pace",e.target.value)}/>
+                      </div>
+                    </div>
+                    <button onClick={()=>updateRun(marathonWk,k,"done",!log.done)}
+                      style={{width:"100%",padding:"5px",borderRadius:5,border:"none",cursor:"pointer",
+                        fontFamily:"'IBM Plex Mono',monospace",fontSize:10,
+                        background:log.done?"#166534":"#1a1a1e",color:log.done?"#86efac":"#52525b",transition:"all 0.15s"}}>
+                      {log.done?"✓ done":"mark done"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Main run days */}
+            <div className="section-lbl">Key Runs</div>
+            <div style={{padding:"0 16px"}}>
+              {["tue","thu","sat"].map(dk=>{
+                const labels={tue:"Tuesday",thu:"Thursday",sat:mPlan.wk===29?"RACE DAY 🏁":"Saturday Long Run"};
+                const targets={tue:mPlan.tue,thu:mPlan.thu,sat:mPlan.sat};
+                return(
+                  <RunDayCard key={dk}
+                    dayKey={dk} label={labels[dk]} targetStr={targets[dk]}
+                    log={getRunLog(marathonWk,dk)} accentC={mColor}
+                    weekKey={marathonWk}
+                    onSave={(field,val)=>updateRun(marathonWk,dk,field,val)}
+                    onToggleDone={()=>updateRun(marathonWk,dk,"done",!getRunLog(marathonWk,dk).done)}/>
+                );
+              })}
+            </div>
+
+            {/* Pace guide reminder */}
+            <div style={{margin:"0 16px 10px",padding:"9px 12px",background:"#0f0f14",border:"1px solid #1e1e22",
+              borderRadius:8,fontSize:10,color:"#52525b",lineHeight:1.8}}>
+              <span style={{color:"#71717a",fontWeight:600}}>Pace guide · </span>
+              Easy: 11:10–11:45 · Long: 11:30–12:00 · Tempo: 10:30
+              <br/>
+              <span style={{color:"#f59e0b",fontSize:9}}>Easy means EASY · Fuel every 45 min on 10+ mi runs</span>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+            LIFT TAB
+        ══════════════════════════════════════════════════════════════════ */}
+        {view==="lift"&&(
+          <div className="fi">
+            {/* Lift week strip */}
+            <div style={{padding:"8px 16px 4px",fontSize:9,color:"#52525b",letterSpacing:"0.1em",textTransform:"uppercase"}}>
+              Lifting Program — Week
+            </div>
+            <div className="wk-strip">
+              {Array.from({length:16},(_,i)=>i+1).map(w=>{
+                const ph=getLiftPhase(w);
+                const isCur=w===liftWeek;
+                const hasData=data[w]&&Object.values(data[w]).some(d=>
+                  Object.keys(d).some(k=>(d[k]||[]).some(s=>s.done)));
+                return(
+                  <button key={w} className="wk-btn"
+                    style={{
+                      background:isCur?ph.color:hasData?ph.color+"22":"#18181b",
+                      color:isCur?"#0c0c0e":hasData?ph.color:"#52525b",
+                      borderColor:isLiftDeload(w)?ph.color+"55":"transparent",
+                      fontWeight:isCur?"600":"400",
+                    }}
+                    onClick={()=>setLiftWeek(w)}>
+                    {w}
+                    {hasData&&!isCur&&<span className="wk-dot" style={{background:ph.color}}/>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Phase + deload badges */}
+            <div style={{padding:"0 16px 8px",display:"flex",gap:6,alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",gap:6}}>
+                <span className="badge" style={{background:phase.color+"22",color:phase.color}}>{phase.name}</span>
+                {deload&&<span className="badge" style={{background:"#27272a",color:"#a1a1aa"}}>Deload ↓</span>}
+                {liftWeek===16&&<span className="badge" style={{background:"#27272a",color:"#fbbf24"}}>Test Week</span>}
+              </div>
+              <span style={{fontSize:9,color:"#52525b"}}>{liftWeek<=8?"4×5+AMRAP":"5×3+AMRAP"} T1{deload?" (deload)":""}</span>
+            </div>
+
+            {/* Day tabs */}
+            <div className="day-tabs">
+              {Object.entries(DAY_META).map(([d,meta])=>{
+                const dDone=data[liftWeek]?.[d]&&Object.keys(data[liftWeek][d]).some(k=>(data[liftWeek][d][k]||[]).some(s=>s.done));
+                return(
+                  <button key={d} className={`day-tab${liftDay===d?" on":""}`} onClick={()=>setLiftDay(d)}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,letterSpacing:"0.04em"}}>{meta.label}</div>
+                    <div style={{marginTop:1}}>{meta.sub}</div>
+                    {dDone&&<div style={{color:phase.color,fontSize:9,marginTop:2}}>✓</div>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{padding:"0 16px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:9,color:"#52525b",letterSpacing:"0.1em",textTransform:"uppercase"}}>
+                {DAY_META[liftDay].label} — {DAY_META[liftDay].sub}
+              </span>
+              <button className="reset-btn" onClick={resetLiftDay}>reset day</button>
+            </div>
+
+            {/* Weighted lifts */}
+            {(() => {
+              const dayLifts = liftDay === "FRI"
+                ? getFridayLifts(liftWeek)
+                : DAY_EXERCISES[liftDay].lifts;
+              if (!dayLifts.length) return null;
+              return (
+              <>
+                <div className="section-lbl">Weighted Lifts</div>
+                {dayLifts.map(liftKey=>{
+                  const meta=LIFT_META[liftKey];
+                  const sets=getLiftSets(liftWeek,liftDay,liftKey);
+                  const vol=liftVol(sets);
+                  const scheme=schemeLabel(liftKey,liftWeek);
+                  const suggested=suggestedWeight(liftKey,liftWeek);
+                  const bestE=sets.reduce((a,s)=>s.done&&s.weight&&s.reps?Math.max(a,e1rm(s.weight,s.reps)||0):a,0)||null;
+                  // Determine actual tier this week for badge color
+                  const isT1 = sets.some(s=>s.amrap);
+                  const tierLabel = isT1 ? "T1" : meta.t==="ACC" ? "ACC" : "T2";
+                  return(
+                    <div className="card" key={liftKey}>
+                      <div className="card-hdr">
+                        <div>
+                          <div className="card-title">{meta.label}</div>
+                          <div style={{fontSize:10,color:"#52525b",marginTop:1}}>{scheme} · {meta.note}</div>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                          <span className="badge" style={{background:isT1?phase.color+"33":"#27272a",color:isT1?phase.color:"#a1a1aa"}}>{tierLabel}</span>
+                          {bestE&&<span style={{fontSize:9,color:"#71717a"}}>e1RM {bestE}</span>}
+                        </div>
+                      </div>
+                      {/* Suggested weight chip */}
+                      <div style={{padding:"5px 12px 2px",display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:9,color:"#52525b"}}>Suggested:</span>
+                        <span style={{fontSize:11,color:phase.color,fontWeight:600}}>{suggested} {meta.unit}</span>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"20px 1fr 1fr 38px 32px",gap:6,padding:"3px 12px 2px"}}>
+                        <div/><div className="slbl">WT ({meta.unit})</div><div className="slbl">REPS</div><div className="slbl">VOL</div><div className="slbl">✓</div>
+                      </div>
+                      {sets.map((s,idx)=>{
+                        const rv=s.weight&&s.reps?s.weight*s.reps:null;
+                        return(
+                          <div key={idx} className={`set-row${s.done?" done-row":""}`}
+                            style={{gridTemplateColumns:"20px 1fr 1fr 38px 32px",gap:6}}>
+                            <div className="set-num">{s.amrap?"A":idx+1}</div>
+                            <input className="inp" type="number" min="0" step="2.5"
+                              placeholder={suggested}
+                              value={s.weight??""} onChange={e=>updateLift(liftWeek,liftDay,liftKey,idx,"weight",e.target.value===""?undefined:+e.target.value)}/>
+                            <input className={`inp${s.amrap?" amrap":""}`} type="number" min="0"
+                              placeholder={s.amrap?"AMRAP":String(s.reps||"")}
+                              value={s.reps??""} onChange={e=>updateLift(liftWeek,liftDay,liftKey,idx,"reps",e.target.value===""?null:+e.target.value)}/>
+                            <div style={{textAlign:"center",fontSize:10,color:"#52525b"}}>{rv||"—"}</div>
+                            <button className={`done-btn${s.done?" chk":""}`}
+                              onClick={()=>updateLift(liftWeek,liftDay,liftKey,idx,"done",!s.done)}>
+                              {s.done?"✓":""}
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <div className="vol-row">
+                        <span style={{fontSize:10,color:"#52525b"}}>Session volume</span>
+                        <span style={{fontSize:12,color:"#a1a1aa",fontWeight:500}}>{vol?`${vol.toLocaleString()} lbs`:"—"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+              );
+            })()}
+
+            {/* BW exercises — each in its own labeled section */}
+            {DAY_EXERCISES[liftDay].bw.map(bwKey=>{
+              const proto=BW_PROTOCOLS[bwKey];
+              const allSets=getBwSets(liftWeek,liftDay,bwKey);
+              if(!allSets.length) return(
+                <Fragment key={bwKey}>
+                  <hr className="divider"/>
+                  <div className="section-lbl">{proto.icon} {proto.label}</div>
+                  <div style={{margin:"0 16px 10px",padding:"10px 12px",background:"#111113",
+                    border:"1px solid #1e1e22",borderRadius:10,fontSize:11,color:"#52525b",textAlign:"center"}}>
+                    Deload week — skip {proto.label.toLowerCase()}
+                  </div>
+                </Fragment>
+              );
+
+              const protoData=proto.protocol[liftWeek]||{};
+              const note=protoData[`${liftDay}_note`]||protoData.note||"";
+
+              // ── FRI Pull-ups: sub-exercise groups ────────────────────────────
+              if(bwKey==="pullups"&&liftDay==="FRI"){
+                // Group sets by subType sequence
+                const subGroups=[];
+                let cur=null;
+                allSets.forEach((s,idx)=>{
+                  const st=s.subType||"pu";
+                  if(!cur||cur.type!==st){
+                    cur={type:st,sets:[],startIdx:idx};
+                    subGroups.push(cur);
+                  }
+                  cur.sets.push({...s,_idx:idx});
+                });
+                const subLabels={
+                  pu:"Pull-ups (Unassisted)",
+                  inv_row:"Inv. Rows (Feet Elevated)",
+                  band:"Band-Assisted Pull-ups",
+                  dead_hang:"Dead Hang",
+                };
+                const subIcons={pu:"🔼",inv_row:"↔",band:"🔼",dead_hang:"⏱"};
+                const prBest=bwPR[bwKey];
+                return(
+                  <Fragment key={bwKey}>
+                    <hr className="divider"/>
+                    <div className="section-lbl">{proto.icon} {proto.label} — Full Body Volume</div>
+                    {note&&<div style={{margin:"-4px 16px 8px",fontSize:10,color:"#52525b"}}>{note}</div>}
+                    {subGroups.map((grp,gi)=>{
+                      const isHang=grp.type==="dead_hang";
+                      const grpDone=grp.sets.every(s=>s.done);
+                      const grpTotal=grp.sets.reduce((a,s)=>a+(s.done&&s.reps?+s.reps:0),0);
+                      return(
+                        <div key={gi} style={{margin:"0 16px 8px",background:"#111113",
+                          border:`1px solid ${grpDone?"#166534":"#1e1e22"}`,borderRadius:10,overflow:"hidden"}}>
+                          {/* Sub-exercise header */}
+                          <div style={{padding:"8px 12px",borderBottom:"1px solid #1e1e22",
+                            display:"flex",alignItems:"center",justifyContent:"space-between",
+                            background:grpDone?"#0d1a12":"#111113"}}>
+                            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,
+                              textTransform:"uppercase",letterSpacing:"0.04em",
+                              color:grpDone?"#34d399":"#f1f5f9"}}>
+                              {subIcons[grp.type]} {subLabels[grp.type]||grp.type}
+                              {grpDone&&" ✓"}
+                            </div>
+                            {grpTotal>0&&<span style={{fontSize:10,color:"#71717a"}}>{grpTotal}{isHang?"s":" reps"}</span>}
+                          </div>
+                          {/* Column headers */}
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",gap:6,padding:"4px 12px 2px"}}>
+                            <div className="slbl">SET</div>
+                            <div className="slbl">{isHang?"SECONDS":"REPS"} ACTUAL</div>
+                            <div className="slbl">✓</div>
+                          </div>
+                          {grp.sets.map((s)=>(
+                            <div key={s._idx} className={`set-row${s.done?" done-row":""}`}
+                              style={{gridTemplateColumns:"1fr 80px 32px",gap:6}}>
+                              <div style={{fontSize:11,color:"#a1a1aa"}}>{s.label||`Set ${s._idx+1}`}</div>
+                              <input className="inp" type="number" min="0"
+                                placeholder={s.reps!=null?String(s.reps):"0"}
+                                value={s.reps!=null?s.reps:""}
+                                onChange={e=>updateBw(liftWeek,liftDay,bwKey,s._idx,"reps",e.target.value===""?null:+e.target.value)}/>
+                              <button className={`done-btn${s.done?" chk":""}`}
+                                onClick={()=>updateBw(liftWeek,liftDay,bwKey,s._idx,"done",!s.done)}>
+                                {s.done?"✓":""}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                );
+              }
+
+              // ── Push-ups: ladder vs straight vs incline vs amrap ──────────────
+              if(bwKey==="pushups"){
+                const subTypeColors={ladder:"#a78bfa",straight:"#60a5fa",incline:"#34d399",amrap:phase.color};
+                const subTypeLabels={ladder:"LADDER",straight:"STRAIGHT",incline:"INCLINE",amrap:"AMRAP"};
+                // Group by subType for visual separation
+                const groups=[];let cg=null;
+                allSets.forEach((s,idx)=>{
+                  const st=s.subType||"straight";
+                  if(!cg||cg.type!==st){cg={type:st,sets:[]};groups.push(cg);}
+                  cg.sets.push({...s,_idx:idx});
+                });
+                const totalReps=totalBwReps(allSets);
+                return(
+                  <Fragment key={bwKey}>
+                    <hr className="divider"/>
+                    <div className="section-lbl">{proto.icon} {proto.label}</div>
+                    {note&&<div style={{margin:"-4px 16px 8px",fontSize:10,color:"#52525b"}}>{note}</div>}
+                    <div className="card">
+                      <div className="card-hdr">
+                        <div>
+                          <div className="card-title">{proto.label}</div>
+                        </div>
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          {bwPR[bwKey]&&<span style={{fontSize:9,color:"#71717a"}}>PR {bwPR[bwKey]}</span>}
+                          <span className="badge" style={{background:phase.color+"22",color:phase.color}}>Goal {proto.goal}</span>
+                        </div>
+                      </div>
+                      {groups.map((grp,gi)=>{
+                        const c=subTypeColors[grp.type]||"#71717a";
+                        const lbl=subTypeLabels[grp.type]||grp.type.toUpperCase();
+                        return(
+                          <Fragment key={gi}>
+                            {/* Sub-group divider */}
+                            <div style={{padding:"5px 12px 3px",display:"flex",alignItems:"center",gap:6,
+                              borderTop:gi>0?"1px solid #1e1e22":"none",background:"#0d0d10"}}>
+                              <span className="badge" style={{background:c+"22",color:c}}>{lbl}</span>
+                              {grp.type==="ladder"&&<span style={{fontSize:9,color:"#52525b"}}>log total reps per ladder</span>}
+                              {grp.type==="amrap"&&<span style={{fontSize:9,color:"#52525b"}}>log reps to failure</span>}
+                            </div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",gap:6,padding:"3px 12px 2px"}}>
+                              <div className="slbl">SET / LADDER</div><div className="slbl">REPS</div><div className="slbl">✓</div>
+                            </div>
+                            {grp.sets.map((s)=>(
+                              <div key={s._idx} className={`set-row${s.done?" done-row":""}`}
+                                style={{gridTemplateColumns:"1fr 80px 32px",gap:6}}>
+                                <div style={{fontSize:11,color:"#a1a1aa"}}>{s.label}</div>
+                                <input className={`inp${s.amrap?" amrap":""}`} type="number" min="0"
+                                  placeholder={s.reps!=null?String(s.reps):s.amrap?"AMRAP":"0"}
+                                  value={s.reps!=null?s.reps:""}
+                                  onChange={e=>updateBw(liftWeek,liftDay,bwKey,s._idx,"reps",e.target.value===""?null:+e.target.value)}/>
+                                <button className={`done-btn${s.done?" chk":""}`}
+                                  onClick={()=>updateBw(liftWeek,liftDay,bwKey,s._idx,"done",!s.done)}>
+                                  {s.done?"✓":""}
+                                </button>
+                              </div>
+                            ))}
+                          </Fragment>
+                        );
+                      })}
+                      <div className="vol-row">
+                        <span style={{fontSize:10,color:"#52525b"}}>Total reps today</span>
+                        <span style={{fontSize:12,color:totalReps?"#a1a1aa":"#52525b",fontWeight:500}}>{totalReps||"—"}</span>
+                      </div>
+                    </div>
+                  </Fragment>
+                );
+              }
+
+              // ── Default: simple set list (plank, dead bug, hollow body) ────────
+              const isTimed=proto.timed||allSets[0]?.timed;
+              const totalReps=totalBwReps(allSets);
+              return(
+                <Fragment key={bwKey}>
+                  <hr className="divider"/>
+                  <div className="section-lbl">{proto.icon} {proto.label}</div>
+                  <div className="card">
+                    <div className="card-hdr">
+                      <div>
+                        <div className="card-title">{proto.label}</div>
+                        {note&&<div style={{fontSize:10,color:"#52525b",marginTop:1}}>{note}</div>}
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                        <span className="badge" style={{background:phase.color+"22",color:phase.color}}>
+                          Goal {proto.goal}{isTimed?"s":""}
+                        </span>
+                        {bwPR[bwKey]&&<span style={{fontSize:9,color:"#71717a"}}>PR {bwPR[bwKey]}{isTimed?"s":""}</span>}
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"24px 1fr 32px",gap:6,padding:"5px 12px 2px"}}>
+                      <div/><div className="slbl">{isTimed?"SECONDS":"REPS"}</div><div className="slbl">✓</div>
+                    </div>
+                    {allSets.map((s,idx)=>(
+                      <div key={idx} className={`bw-set-row${s.done?" done-row":""}`}>
+                        <div className="set-num">{idx+1}</div>
+                        <input className="inp" type="number" min="0"
+                          placeholder={s.reps!=null?String(s.reps):"0"}
+                          value={s.reps!=null?s.reps:""}
+                          onChange={e=>updateBw(liftWeek,liftDay,bwKey,idx,"reps",e.target.value===""?null:+e.target.value)}/>
+                        <button className={`done-btn${s.done?" chk":""}`}
+                          onClick={()=>updateBw(liftWeek,liftDay,bwKey,idx,"done",!s.done)}>
+                          {s.done?"✓":""}
+                        </button>
+                      </div>
+                    ))}
+                    <div className="vol-row">
+                      <span style={{fontSize:10,color:"#52525b"}}>Total {isTimed?"sec":"reps"} today</span>
+                      <span style={{fontSize:12,color:totalReps?"#a1a1aa":"#52525b",fontWeight:500}}>{totalReps||"—"}</span>
+                    </div>
+                  </div>
+                </Fragment>
+              );
+            })}
+
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+            STATS TAB
+        ══════════════════════════════════════════════════════════════════ */}
+        {view==="stats"&&(
+          <div className="fi">
+            <div className="stats-tabs" style={{paddingTop:10}}>
+              {[["bw","💪 Bodyweight"],["lifts","🏋 Weighted"],["miles","🏃 Mileage"]].map(([id,lbl])=>(
+                <button key={id} className={`stab${statsTab===id?" on":""}`}
+                  onClick={()=>{setStatsTab(id);setActiveStat(null);}}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+
+            {/* ── DATA BACKUP ──────────────────────────────────────────────── */}
+            <div style={{margin:"0 16px 12px",background:"#111113",border:"1px solid #1e1e22",
+              borderRadius:10,padding:"12px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,
+                  textTransform:"uppercase",letterSpacing:"0.05em"}}>💾 Data Backup</div>
+                <span style={{fontSize:9,color:"#52525b"}}>protect against data loss</span>
+              </div>
+              <div style={{fontSize:10,color:"#71717a",lineHeight:1.5,marginBottom:10}}>
+                iOS can clear app storage when low on space. Export a backup to your Files app
+                regularly — restore it in two taps if anything gets wiped.
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <button onClick={exportData}
+                  style={{padding:"10px",borderRadius:8,border:"none",cursor:"pointer",
+                    fontFamily:"'IBM Plex Mono',monospace",fontSize:11,letterSpacing:"0.06em",
+                    background:"#1e3a2e",color:"#86efac",fontWeight:600}}>
+                  ↓ EXPORT BACKUP
+                </button>
+                <button onClick={()=>document.getElementById("import-file-input").click()}
+                  style={{padding:"10px",borderRadius:8,border:"1px solid #27272a",cursor:"pointer",
+                    fontFamily:"'IBM Plex Mono',monospace",fontSize:11,letterSpacing:"0.06em",
+                    background:"#18181b",color:"#a1a1aa",fontWeight:600}}>
+                  ↑ RESTORE BACKUP
+                </button>
+              </div>
+              <input id="import-file-input" type="file" accept="application/json,.json"
+                style={{display:"none"}}
+                onChange={(e)=>{importData(e.target.files[0]); e.target.value="";}}/>
+            </div>
+
+            {/* ── BW STATS ── */}
+            {statsTab==="bw"&&(
+              <>
+                <div className="section-lbl">Personal Records</div>
+                <div className="stat-grid">
+                  {Object.entries(BW_PROTOCOLS).map(([key,proto])=>{
+                    const pr=bwPR[key];
+                    const hist=bwHist(data,key);
+                    const lastWk=hist.length?hist[hist.length-1].week:null;
+                    return(
+                      <div key={key} className={`stat-card${activeStat===key?" active":""}`}
+                        onClick={()=>setActiveStat(activeStat===key?null:key)}>
+                        <div style={{fontSize:11,color:"#a1a1aa"}}>{proto.icon} {proto.label}</div>
+                        <div className="stat-pr">{pr||"—"}</div>
+                        <div style={{fontSize:9,color:"#52525b"}}>{pr?"reps PR":"no data"}{lastWk?` · wk ${lastWk}`:""}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {activeStat&&BW_PROTOCOLS[activeStat]&&(()=>{
+                  const proto=BW_PROTOCOLS[activeStat];
+                  const hist=bwHist(data,activeStat);
+                  return(
+                    <div className="chart-section">
+                      <div className="chart-title">{proto.icon} {proto.label}</div>
+                      {hist.length===0?<div style={{fontSize:11,color:"#52525b"}}>No data yet.</div>:(
+                        <>
+                          <div style={{fontSize:10,color:"#52525b",marginBottom:6}}>Best set per session</div>
+                          <div className="chart-bars">
+                            {hist.map(({week:w,best})=>{
+                              const ph=getLiftPhase(w);
+                              const maxV=Math.max(...hist.map(h=>h.best),proto.goal);
+                              const h=Math.max(3,(best/maxV)*75);
+                              return(<div key={w} className="chart-col">
+                                <div style={{fontSize:7,color:ph.color}}>{best}</div>
+                                <div className="chart-bar" style={{height:h,background:ph.color}}/>
+                                <div className="chart-wlbl">w{w}</div>
+                              </div>);
+                            })}
+                          </div>
+                          <div style={{marginTop:12}}>
+                            {hist.map(({week:w,best,total})=>(
+                              <div key={w} style={{display:"flex",gap:8,padding:"5px 0",borderBottom:"1px solid #18181b",fontSize:10,alignItems:"center"}}>
+                                <span className="badge" style={{background:getLiftPhase(w).color+"22",color:getLiftPhase(w).color,minWidth:32}}>W{w}</span>
+                                <span style={{color:"#a1a1aa",minWidth:52}}>best: {best}</span>
+                                <span style={{color:"#71717a",flex:1}}>total: {total}</span>
+                                {best>=proto.goal&&<span style={{color:"#22c55e",fontSize:9}}>✓ goal</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+                <div className="chart-section">
+                  <div className="chart-title">Goals</div>
+                  {[{key:"pullups",label:"Pull-ups",goal:3,unit:"reps"},{key:"pushups",label:"Push-ups",goal:15,unit:"reps"},
+                    {key:"plank",label:"Plank",goal:90,unit:"sec"},{key:"hollowbody",label:"Hollow Body",goal:60,unit:"sec"}
+                  ].map(({key,label,goal,unit})=>{
+                    const pr=bwPR[key]||0;const pct=Math.min(100,Math.round((pr/goal)*100));
+                    return(<div key={key} className="prog-row">
+                      <div style={{fontSize:10,color:"#a1a1aa",minWidth:88}}>{label}</div>
+                      <div className="mini-bar"><div className="mini-fill" style={{width:`${pct}%`,background:pct>=100?"#22c55e":`linear-gradient(90deg,${phase.color}66,${phase.color})`}}/></div>
+                      <div style={{fontSize:11,fontWeight:600,minWidth:52,textAlign:"right",color:pct>=100?"#22c55e":"#f1f5f9"}}>
+                        {pr||"—"}<span style={{color:"#52525b",fontSize:9}}>/{goal}</span>
+                      </div>
+                    </div>);
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* ── LIFT STATS ── */}
+            {statsTab==="lifts"&&(
+              <>
+                <div className="section-lbl">e1RM — tap to drill down</div>
+                <div className="stat-grid">
+                  {Object.entries(LIFT_META).map(([key,meta])=>{
+                    const pr=liftPR[key];const hist=liftHist(data,key);const lastWk=hist.length?hist[hist.length-1].week:null;
+                    return(<div key={key} className={`stat-card${activeStat===key?" active":""}`}
+                      onClick={()=>setActiveStat(activeStat===key?null:key)}>
+                      <div style={{fontSize:10,color:"#a1a1aa",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em"}}>{meta.label}</div>
+                      <div className="stat-pr">{pr||"—"}</div>
+                      <div style={{fontSize:9,color:"#52525b"}}>{pr?`${meta.unit} e1RM`:"no data"}{lastWk?` · wk ${lastWk}`:""}</div>
+                    </div>);
+                  })}
+                </div>
+                {activeStat&&LIFT_META[activeStat]&&(()=>{
+                  const meta=LIFT_META[activeStat];const hist=liftHist(data,activeStat);
+                  if(!hist.length)return(<div className="chart-section"><div className="chart-title">{meta.label}</div><div style={{fontSize:11,color:"#52525b"}}>No data.</div></div>);
+                  const maxE=Math.max(...hist.map(h=>h.bestE),1);
+                  return(<div className="chart-section">
+                    <div className="chart-title">{meta.label}</div>
+                    <div style={{fontSize:10,color:"#52525b",marginBottom:6}}>e1RM per session</div>
+                    <div className="chart-bars">
+                      {hist.map(({week:w,bestE})=>{
+                        const ph=getLiftPhase(w);const h=Math.max(3,(bestE/maxE)*75);
+                        return(<div key={w} className="chart-col">
+                          <div style={{fontSize:7,color:ph.color}}>{bestE}</div>
+                          <div className="chart-bar" style={{height:h,background:ph.color}}/>
+                          <div className="chart-wlbl">w{w}</div>
+                        </div>);
+                      })}
+                    </div>
+                    <div style={{marginTop:12}}>
+                      {hist.map(({week:w,bestW,vol,bestE})=>(
+                        <div key={w} style={{display:"flex",gap:8,padding:"5px 0",borderBottom:"1px solid #18181b",fontSize:10,alignItems:"center"}}>
+                          <span className="badge" style={{background:getLiftPhase(w).color+"22",color:getLiftPhase(w).color,minWidth:32}}>W{w}</span>
+                          <span style={{color:"#a1a1aa",minWidth:58}}>{bestW?`${bestW} lbs`:"—"}</span>
+                          <span style={{color:"#71717a",flex:1}}>{vol?`${vol.toLocaleString()} vol`:""}</span>
+                          <span style={{color:phase.color,fontWeight:600}}>{bestE?`e1RM ${bestE}`:""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>);
+                })()}
+                <div className="chart-section">
+                  <div className="chart-title">vs Week 16 Targets</div>
+                  {[{key:"squat",label:"Back Squat",goal:135},{key:"deadlift",label:"Deadlift",goal:155},{key:"ohp",label:"Press",goal:57.5}].map(({key,label,goal})=>{
+                    const pr=liftPR[key]||0;const pct=Math.min(100,Math.round((pr/goal)*100));
+                    return(<div key={key} className="prog-row">
+                      <div style={{fontSize:10,color:"#a1a1aa",minWidth:88}}>{label}</div>
+                      <div className="mini-bar"><div className="mini-fill" style={{width:`${pct}%`,background:pct>=100?"#22c55e":`linear-gradient(90deg,${phase.color}66,${phase.color})`}}/></div>
+                      <div style={{fontSize:11,fontWeight:600,minWidth:52,textAlign:"right",color:pct>=100?"#22c55e":"#f1f5f9"}}>
+                        {pr||"—"}<span style={{color:"#52525b",fontSize:9}}>/{goal}</span>
+                      </div>
+                    </div>);
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* ── MILEAGE STATS ── */}
+            {statsTab==="miles"&&(()=>{
+              // Build per-week logged + planned miles
+              const weekData=MARATHON_PLAN.map(plan=>{
+                const wkLog=data?.runs?.[plan.wk]||{};
+                const logged=["tue","thu","sat","mon_jog","wed_jog"].reduce((a,d)=>a+(+wkLog[d]?.miles||0),0);
+                return{...plan,logged};
+              });
+              const maxMiles=Math.max(...weekData.map(w=>Math.max(w.miles||0,w.logged)),1);
+
+              // All time logged miles
+              const totalLogged=weekData.reduce((a,w)=>a+w.logged,0);
+              const totalPlanned=weekData.reduce((a,w)=>a+(w.miles||0),0);
+              const longestRun=Object.values(data?.runs||{}).flatMap(wk=>Object.values(wk)).reduce((a,r)=>Math.max(a,+r.miles||0),0);
+
+              return(
+                <>
+                  {/* Summary cards */}
+                  <div className="stat-grid" style={{paddingTop:10}}>
+                    {[
+                      {label:"Total Logged",val:`${totalLogged.toFixed(1)}`,sub:"miles all time"},
+                      {label:"Longest Run",val:`${longestRun||"—"}`,sub:"miles single run"},
+                      {label:"Weeks Logged",val:`${completedRunWks}`,sub:`of 29 weeks`},
+                      {label:"Race",val:"Dec 6",sub:"4:52–5:10 goal"},
+                    ].map(({label,val,sub})=>(
+                      <div key={label} style={{background:"#111113",border:"1px solid #1e1e22",borderRadius:10,padding:"11px"}}>
+                        <div style={{fontSize:10,color:"#a1a1aa"}}>{label}</div>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:800,color:mColor,lineHeight:1,marginTop:3}}>{val}</div>
+                        <div style={{fontSize:9,color:"#52525b",marginTop:2}}>{sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Mileage chart */}
+                  <div className="chart-section">
+                    <div className="chart-title">Weekly Mileage — All 29 Weeks</div>
+                    <div style={{fontSize:10,color:"#52525b",marginBottom:8}}>
+                      <span style={{marginRight:12}}>■ <span style={{color:"#27272a"}}>planned</span></span>
+                      <span>■ <span style={{color:mColor}}>logged</span></span>
+                    </div>
+                    <div className="chart-bars" style={{height:100}}>
+                      {weekData.map(({wk,miles,logged,phase:ph,cutback})=>{
+                        const c=MARATHON_PHASE_COLORS[ph];
+                        const planH=miles?Math.max(2,(miles/maxMiles)*90):0;
+                        const logH=logged?Math.max(2,(logged/maxMiles)*90):0;
+                        const isCur=wk===marathonWk;
+                        return(
+                          <div key={wk} className="chart-col">
+                            {logged>0&&<div style={{fontSize:6,color:c}}>{logged.toFixed(0)}</div>}
+                            <div style={{position:"relative",width:"100%",flex:1,display:"flex",alignItems:"flex-end"}}>
+                              <div style={{position:"absolute",bottom:0,width:"100%",height:planH,
+                                background:cutback?c+"22":c+"33",borderRadius:"2px 2px 0 0",border:`1px solid ${c}22`}}/>
+                              {logged>0&&<div style={{position:"absolute",bottom:0,width:"100%",height:logH,
+                                background:logged>=(miles||0)*0.9?c:"#f472b6",borderRadius:"2px 2px 0 0"}}/>}
+                              {isCur&&<div style={{position:"absolute",bottom:-3,left:"50%",transform:"translateX(-50%)",
+                                width:3,height:3,borderRadius:"50%",background:"#f1f5f9"}}/>}
+                            </div>
+                            <div className="chart-wlbl">{wk}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Phase breakdown */}
+                  <div className="chart-section">
+                    <div className="chart-title">Phase Progress</div>
+                    {[
+                      {phase:"Base",label:"Base Building",weeks:[1,8],target:8},
+                      {phase:"Build",label:"Marathon Build",weeks:[9,20],target:12},
+                      {phase:"Taper",label:"Taper",weeks:[21,28],target:8},
+                    ].map(({phase:ph,label,weeks,target})=>{
+                      const done=weekData.filter(w=>w.wk>=weeks[0]&&w.wk<=weeks[1]&&w.logged>0).length;
+                      const pct=Math.round((done/target)*100);
+                      const c=MARATHON_PHASE_COLORS[ph];
+                      return(<div key={ph} className="prog-row">
+                        <div style={{fontSize:10,color:"#a1a1aa",minWidth:100}}>{label}</div>
+                        <div className="mini-bar"><div className="mini-fill" style={{width:`${pct}%`,background:c}}/></div>
+                        <div style={{fontSize:10,fontWeight:600,minWidth:50,textAlign:"right",color:c}}>
+                          {done}<span style={{color:"#52525b",fontSize:9}}>/{target} wks</span>
+                        </div>
+                      </div>);
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      {toast&&<div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+
+</body>
+</html>
